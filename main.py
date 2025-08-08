@@ -1,9 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
-import json
+from typing import Optional, Dict, Any
 from datetime import datetime
 import logging
 from pdf_parser import JobPDFParser
@@ -43,9 +41,6 @@ class JobSummaryResponse(BaseModel):
     error: Optional[str] = None
     extraction_summary: Optional[Dict[str, Any]] = None
 
-class TextParseRequest(BaseModel):
-    text: str = Field(..., description="Text content to parse")
-
 # Initialize PDF parser
 pdf_parser = JobPDFParser()
 
@@ -57,13 +52,11 @@ async def root():
         "status": "active",
         "endpoints": {
             "/parse-pdf": "POST - Upload and parse PDF file",
-            "/parse-text": "POST - Parse text content",
             "/health": "GET - Health check endpoint"
         },
         "features": [
             "PDF text extraction using PyMuPDF",
             "Advanced pattern matching for job details",
-            "Section-aware content extraction",
             "Structured JSON output"
         ]
     }
@@ -135,101 +128,6 @@ async def parse_pdf(file: UploadFile = File(...)):
             success=False,
             error=error_msg
         )
-
-@app.post("/parse-text", response_model=JobSummaryResponse)
-async def parse_text(request: TextParseRequest):
-    """
-    Parse text content and extract job information
-    """
-    try:
-        text = request.text
-        if not text.strip():
-            raise HTTPException(status_code=400, detail="Text content is required")
-        
-        if len(text) > 100000:  # 100KB text limit
-            raise HTTPException(status_code=400, detail="Text too long (max 100KB)")
-        
-        logger.info(f"Parsing text, Length: {len(text)} characters")
-        
-        # Use the parser's individual extraction methods
-        job_info_dict = {
-            'job_title': pdf_parser.extract_job_title(text),
-            'department': pdf_parser.extract_department(text),
-            'vacancies': pdf_parser.extract_vacancies(text),
-            'eligibility': pdf_parser.extract_eligibility(text),
-            'salary': pdf_parser.extract_salary(text),
-            'application_deadline': pdf_parser.extract_deadline(text),
-            'application_url': pdf_parser.extract_application_url(text),
-            'raw_text': text[:1000] + "..." if len(text) > 1000 else text
-        }
-        
-        # Create extraction summary
-        extraction_summary = {
-            "input_type": "text",
-            "text_length": len(text),
-            "extracted_fields": {
-                field: bool(value and str(value).strip()) 
-                for field, value in job_info_dict.items() 
-                if field != 'raw_text'
-            },
-            "parsing_timestamp": datetime.now().isoformat()
-        }
-        
-        job_info = JobInfo(**job_info_dict)
-        
-        logger.info("Successfully parsed text content")
-        
-        return JobSummaryResponse(
-            success=True,
-            data=job_info,
-            extraction_summary=extraction_summary
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        error_msg = f"Error parsing text: {str(e)}"
-        logger.error(error_msg)
-        return JobSummaryResponse(
-            success=False,
-            error=error_msg
-        )
-
-@app.get("/test-extraction/{field}")
-async def test_extraction(field: str, text: str = ""):
-    """
-    Test individual field extraction for debugging
-    """
-    if not text:
-        return {"error": "Text parameter is required"}
-    
-    try:
-        if field == "job_title":
-            result = pdf_parser.extract_job_title(text)
-        elif field == "department":
-            result = pdf_parser.extract_department(text)
-        elif field == "vacancies":
-            result = pdf_parser.extract_vacancies(text)
-        elif field == "eligibility":
-            result = pdf_parser.extract_eligibility(text)
-        elif field == "salary":
-            result = pdf_parser.extract_salary(text)
-        elif field == "deadline":
-            result = pdf_parser.extract_deadline(text)
-        elif field == "url":
-            result = pdf_parser.extract_application_url(text)
-        else:
-            return {"error": f"Unknown field: {field}"}
-        
-        return {
-            "field": field,
-            "result": result,
-            "found": bool(result),
-            "text_length": len(text)
-        }
-    
-    except Exception as e:
-        return {"error": f"Error testing {field}: {str(e)}"}
 
 if __name__ == "__main__":
     import uvicorn
