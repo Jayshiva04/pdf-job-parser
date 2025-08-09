@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "main.py": {
+      "maxLambdaSize": "15mb"
+    }
+  },
   "builds": [
     {
       "src": "main.py",
