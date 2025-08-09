@@ -16,14 +16,23 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware for frontend integration
+# --- CORRECTED CORS CONFIGURATION ---
+
+# List of allowed origins
+origins = [
+    "http://localhost:3000",  # Your local frontend
+    "https://pdf-job-parser-frontend-dn9v.vercel.app" # Your deployed frontend
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins, # Use the specific list of origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --- THE REST OF YOUR CODE REMAINS THE SAME ---
 
 class JobInfo(BaseModel):
     job_title: Optional[str] = Field(None, description="Job title or position name")
@@ -76,25 +85,20 @@ async def parse_pdf(file: UploadFile = File(...)):
     Parse a PDF file and extract job information
     """
     try:
-        # Validate file
         if not file.filename:
             raise HTTPException(status_code=400, detail="No file uploaded")
             
         if not file.filename.lower().endswith('.pdf'):
             raise HTTPException(status_code=400, detail="Only PDF files are allowed")
         
-        # Check file size (limit to 10MB)
         content = await file.read()
         if len(content) > 10 * 1024 * 1024:  # 10MB limit
             raise HTTPException(status_code=400, detail="File size too large (max 10MB)")
         
-        # Log parsing attempt
         logger.info(f"Parsing PDF: {file.filename}, Size: {len(content)} bytes")
         
-        # Parse PDF using the improved parser
         job_info_dict = pdf_parser.parse_pdf(content)
         
-        # Create extraction summary for debugging
         extraction_summary = {
             "file_name": file.filename,
             "file_size_bytes": len(content),
@@ -107,7 +111,6 @@ async def parse_pdf(file: UploadFile = File(...)):
             "parsing_timestamp": datetime.now().isoformat()
         }
         
-        # Convert to JobInfo model
         job_info = JobInfo(**job_info_dict)
         
         logger.info(f"Successfully parsed PDF: {file.filename}")
@@ -119,7 +122,6 @@ async def parse_pdf(file: UploadFile = File(...)):
         )
         
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         error_msg = f"Error parsing PDF: {str(e)}"
