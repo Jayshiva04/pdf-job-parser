@@ -17,18 +17,17 @@ app = FastAPI(
 )
 
 # --- CORRECTED CORS CONFIGURATION ---
-
-# List of allowed origins
+# Be more explicit with the allowed origins
 origins = [
-    "http://localhost:3000",  # Your local frontend
-    "https://pdf-job-parser-frontend-dn9v.vercel.app" # Your deployed frontend
+    "http://localhost:3000",
+    "https://pdf-job-parser-frontend-dn9v.vercel.app",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins, # Use the specific list of origins
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
